@@ -1,4 +1,3 @@
-#include <string>
 #include <type_traits>
 // #include "macros.h"
 // #include "typedefs.h"
@@ -98,250 +97,315 @@ typedef unsigned long long int __uint128T;
 typedef const char *__ccptrT;
 typedef bool __bitT;
 
-template <typename T> struct Sequence {
-  __uint64T size{0};
-  T *data{nullptr};
+template <typename T> struct Sequence
+{
+    __uint64T size{0};
+    T *data{nullptr};
 
-  inline Sequence() noexcept {};
+    inline Sequence() noexcept {};
 
-  inline Sequence(__uint64T s) noexcept { this->size = s; };
+    inline Sequence(__uint64T s) noexcept
+    {
+        this->size = s;
+    };
 
-  inline Sequence(const Sequence<T> &o) noexcept { *this = o; };
+    inline Sequence(const Sequence<T> &o) noexcept
+    {
+        *this = o;
+    };
 
-  inline Sequence(Sequence<T> &&o) noexcept { *this = std::move(o); };
+    inline Sequence(Sequence<T> &&o) noexcept
+    {
+        *this = std::move(o);
+    };
 
-  const Sequence<T> &operator=(const Sequence<T> &o) noexcept {
-    if (o.data == nullptr || o.size == 0) [[unlikely]]
-      return *this;
-    if (this->data == nullptr) [[likely]] {
-      this->data = (T *)malloc(o.size * sizeof(T));
+    const Sequence<T> &operator=(const Sequence<T> &o) noexcept
+    {
+        if (o.data == nullptr || o.size == 0) [[unlikely]]
+            return *this;
+        if (this->data == nullptr) [[likely]]
+        {
+            this->data = (T *)malloc(o.size * sizeof(T));
+        }
+        while (this->size < o.size)
+        {
+            data[this->size] = o.data[this->size];
+            ++this->size;
+        }
+        return *this;
+    };
+
+    const Sequence<T> &operator=(Sequence<T> &&o) noexcept
+    {
+        if (o.data == nullptr || o.size == 0) [[unlikely]]
+            return *this;
+        if (this->data == nullptr) [[likely]]
+        {
+            this->data = (T *)malloc(o.size * sizeof(T));
+        }
+
+        while (this->size < o.size)
+        {
+            this->data[this->size] = o[this->size];
+            o.data[this->size] = '\0';
+            ++this->size;
+        }
+        free(o.data);
+        o.data = nullptr;
+        o.size = 0;
+        return *this;
+    };
+
+    __attribute__((warn_unused_result, always_inline, pure)) const T operator[](const __uint64T i) const noexcept
+    {
+        if (i < size)
+            return data[i];
+        else
+            return T{};
+    };
+
+    __attribute__((warn_unused_result, always_inline, pure)) T &operator[](const __uint64T i) noexcept
+    {
+        return data[i < size ? i : i % size];
+    };
+
+    __attribute__((warn_unused_result, always_inline, pure)) const bool operator==(const Sequence<T> &o) const noexcept
+    {
+        if (this->size != o.size)
+            return false;
+        if (o.size > 0) [[likely]]
+        {
+            __uint64T c{0};
+            do
+            {
+                if (this->data[c] != o.data[c])
+                    return false;
+            } while (c++ < o.size && c < this->size);
+        }
+        return true;
+    };
+
+    __attribute__((warn_unused_result, always_inline, pure)) const bool operator>(const Sequence<T> &o) const noexcept
+    {
+        return this->size > o.size;
+    };
+    __attribute__((warn_unused_result, always_inline, pure)) const bool operator>=(const Sequence<T> &o) const noexcept
+    {
+        return this->size > o.size;
+    };
+    __attribute__((warn_unused_result, always_inline, pure)) const bool operator<(const Sequence<T> &o) const noexcept
+    {
+        return this->size > o.size;
+    };
+    __attribute__((warn_unused_result, always_inline, pure)) const bool operator<=(const Sequence<T> &o) const noexcept
+    {
+        return this->size > o.size;
+    };
+
+    __attribute__((always_inline)) inline void reverse_sequence() noexcept
+    {
+        T *tmp_seq = (T *)malloc(this->size * sizeof(T));
+        __uint64T s = 0;
+        while (s < size)
+        {
+            tmp_seq[s] = data[s];
+            ++s;
+        }
+        __uint64T tc{0};
+        do
+        {
+            data[tc] = tmp_seq[(size - 1) - tc];
+        } while (++tc < size);
+        free(tmp_seq);
+    };
+
+    __attribute__((always_inline)) inline void realloc_byte(const __uint64T i, const T n) noexcept
+    {
+        if (i >= size)
+            return;
+        data[i] = n;
+    };
+
+    inline ~Sequence() noexcept
+    {
+        if (this->data != nullptr)
+        {
+            free(this->data);
+        }
+        size = 0;
     }
-    while (this->size < o.size) {
-      data[this->size] = o.data[this->size];
-      ++this->size;
-    }
-    return *this;
-  };
-
-  const Sequence<T> &operator=(Sequence<T> &&o) noexcept {
-    if (o.data == nullptr || o.size == 0) [[unlikely]]
-      return *this;
-    if (this->data == nullptr) [[likely]] {
-      this->data = (T *)malloc(o.size * sizeof(T));
-    }
-
-    while (this->size < o.size) {
-      this->data[this->size] = o[this->size];
-      o.data[this->size] = '\0';
-      ++this->size;
-    }
-    free(o.data);
-    o.data = nullptr;
-    o.size = 0;
-    return *this;
-  };
-
-  __attribute__((warn_unused_result, always_inline, pure)) const T operator[](const __uint64T i) const noexcept {
-    if (i < size)
-      return data[i];
-    else
-      return T{};
-  };
-
-  __attribute__((warn_unused_result, always_inline, pure)) T &operator[](const __uint64T i) noexcept {
-    return data[i < size ? i : i % size];
-  };
-
-  __attribute__((warn_unused_result, always_inline, pure)) const bool operator==(const Sequence<T> &o) const noexcept {
-    if (this->size != o.size)
-      return false;
-    if (o.size > 0) [[likely]] {
-      __uint64T c{0};
-      do {
-        if (this->data[c] != o.data[c])
-          return false;
-      } while (c++ < o.size && c < this->size);
-    }
-    return true;
-  };
-
-  __attribute__((warn_unused_result, always_inline, pure)) const bool operator>(const Sequence<T> &o) const noexcept {
-    return this->size > o.size;
-  };
-  __attribute__((warn_unused_result, always_inline, pure)) const bool operator>=(const Sequence<T> &o) const noexcept {
-    return this->size > o.size;
-  };
-  __attribute__((warn_unused_result, always_inline, pure)) const bool operator<(const Sequence<T> &o) const noexcept {
-    return this->size > o.size;
-  };
-  __attribute__((warn_unused_result, always_inline, pure)) const bool operator<=(const Sequence<T> &o) const noexcept {
-    return this->size > o.size;
-  };
-
-  __attribute__((always_inline)) inline void reverse_sequence() noexcept {
-    T *tmp_seq = (T *)malloc(this->size * sizeof(T));
-    __uint64T s = 0;
-    while (s < size) {
-      tmp_seq[s] = data[s];
-      ++s;
-    }
-    __uint64T tc{0};
-    do {
-      data[tc] = tmp_seq[(size - 1) - tc];
-    } while (++tc < size);
-    free(tmp_seq);
-  };
-
-  __attribute__((always_inline)) inline void realloc_byte(const __uint64T i, const T n) noexcept {
-    if (i >= size)
-      return;
-    data[i] = n;
-  };
-
-  inline ~Sequence() noexcept {
-    if (this->data != nullptr) {
-      free(this->data);
-    }
-    size = 0;
-  }
 };
 
-class Converter {
-public:
-  Converter() = delete;
-  ~Converter() = default;
-  static __ccptrT asciiToBinary(__ccptrT input) noexcept {
-    static __ccptrT const lookup[256] = {
-        "00000000", "00000001", "00000010", "00000011", "00000100", "00000101", "00000110", "00000111", "00001000", "00001001", "00001010",
-        "00001011", "00001100", "00001101", "00001110", "00001111", "00010000", "00010001", "00010010", "00010011", "00010100", "00010101",
-        "00010110", "00010111", "00011000", "00011001", "00011010", "00011011", "00011100", "00011101", "00011110", "00011111", "00100000",
-        "00100001", "00100010", "00100011", "00100100", "00100101", "00100110", "00100111", "00101000", "00101001", "00101010", "00101011",
-        "00101100", "00101101", "00101110", "00101111", "00110000", "00110001", "00110010", "00110011", "00110100", "00110101", "00110110",
-        "00110111", "00111000", "00111001", "00111010", "00111011", "00111100", "00111101", "00111110", "00111111", "01000000", "01000001",
-        "01000010", "01000011", "01000100", "01000101", "01000110", "01000111", "01001000", "01001001", "01001010", "01001011", "01001100",
-        "01001101", "01001110", "01001111", "01010000", "01010001", "01010010", "01010011", "01010100", "01010101", "01010110", "01010111",
-        "01011000", "01011001", "01011010", "01011011", "01011100", "01011101", "01011110", "01011111", "01100000", "01100001", "01100010",
-        "01100011", "01100100", "01100101", "01100110", "01100111", "01101000", "01101001", "01101010", "01101011", "01101100", "01101101",
-        "01101110", "01101111", "01110000", "01110001", "01110010", "01110011", "01110100", "01110101", "01110110", "01110111", "01111000",
-        "01111001", "01111010", "01111011", "01111100", "01111101", "01111110", "01111111", "10000000", "10000001", "10000010", "10000011",
-        "10000100", "10000101", "10000110", "10000111", "10001000", "10001001", "10001010", "10001011", "10001100", "10001101", "10001110",
-        "10001111", "10010000", "10010001", "10010010", "10010011", "10010100", "10010101", "10010110", "10010111", "10011000", "10011001",
-        "10011010", "10011011", "10011100", "10011101", "10011110", "10011111", "10100000", "10100001", "10100010", "10100011", "10100100",
-        "10100101", "10100110", "10100111", "10101000", "10101001", "10101010", "10101011", "10101100", "10101101", "10101110", "10101111",
-        "10110000", "10110001", "10110010", "10110011", "10110100", "10110101", "10110110", "10110111", "10111000", "10111001", "10111010",
-        "10111011", "10111100", "10111101", "10111110", "10111111", "11000000", "11000001", "11000010", "11000011", "11000100", "11000101",
-        "11000110", "11000111", "11001000", "11001001", "11001010", "11001011", "11001100", "11001101", "11001110", "11001111", "11010000",
-        "11010001", "11010010", "11010011", "11010100", "11010101", "11010110", "11010111", "11011000", "11011001", "11011010", "11011011",
-        "11011100", "11011101", "11011110", "11011111", "11100000", "11100001", "11100010", "11100011", "11100100", "11100101", "11100110",
-        "11100111", "11101000", "11101001", "11101010", "11101011", "11101100", "11101101", "11101110", "11101111", "11110000", "11110001",
-        "11110010", "11110011", "11110100", "11110101", "11110110", "11110111", "11111000", "11111001", "11111010", "11111011", "11111100",
-        "11111101", "11111110", "11111111"};
 
-    static char result[8192];
-    size_t inputLength = 0;
-    while (input[inputLength] != '\0') {
-      ++inputLength;
-    }
-    size_t resultIndex = 0;
-    for (size_t i = 0; i < inputLength; ++i) {
-      __ccptrT binary = lookup[static_cast<unsigned char>(input[i])];
-      for (int j = 0; j < 8; ++j) {
-        result[resultIndex++] = binary[j];
-      }
-    }
-    result[resultIndex] = '\0';
-    return result;
-  }
+typedef struct {
+    struct Sequence<__uint16T> __inp_raw{};
+    struct Sequence<__uint16T> __key_raw{};
+    struct Sequence<__uint8T>   __ibin{};
+    struct Sequence<__uint8T>   __kbin{};
+}__AesDtConvFmt;
 
-  static __ccptrT asciiToHex(__ccptrT input) noexcept {
-    static const char hexDigits[17] = "0123456789ABCDEF";
-    static char result[4096];
-    size_t inputLength = 0;
-    while (input[inputLength] != '\0') {
-      ++inputLength;
-    }
-    size_t resultIndex = 0;
-    for (size_t i = 0; i < inputLength; ++i) {
-      result[resultIndex++] = hexDigits[static_cast<unsigned char>(input[i]) >> 4];
-      result[resultIndex++] = hexDigits[static_cast<unsigned char>(input[i]) & 0x0F];
-    }
-    result[resultIndex] = '\0';
-    return result;
-  }
 
-  static __ccptrT binaryToAscii(__ccptrT binary) noexcept {
-    static char result[1024];
-    size_t binaryLength = 0;
-    while (binary[binaryLength] != '\0') {
-      ++binaryLength;
-    }
-    size_t resultIndex = 0;
-    for (size_t i = 0; i < binaryLength; i += 8) {
-      char byteString[9] = {0};
-      for (int j = 0; j < 8; ++j) {
-        byteString[j] = binary[i + j];
-      }
-      char asciiChar = static_cast<char>(strtol(byteString, nullptr, 2));
-      result[resultIndex++] = asciiChar;
-    }
-    result[resultIndex] = '\0';
-    return result;
-  }
+class Converter
+{
+  public:
+    Converter() = delete;
+    ~Converter() = default;
+    __attribute__((warn_unused_result, nonnull)) static __ccptrT asciiToBinary(__ccptrT input) noexcept
+    {
+         static __ccptrT const lookup[256] = {
+            "00000000", "00000001", "00000010", "00000011", "00000100", "00000101", "00000110", "00000111", "00001000", "00001001",
+            "00001010", "00001011", "00001100", "00001101", "00001110", "00001111", "00010000", "00010001", "00010010", "00010011",
+            "00010100", "00010101", "00010110", "00010111", "00011000", "00011001", "00011010", "00011011", "00011100", "00011101",
+            "00011110", "00011111", "00100000", "00100001", "00100010", "00100011", "00100100", "00100101", "00100110", "00100111",
+            "00101000", "00101001", "00101010", "00101011", "00101100", "00101101", "00101110", "00101111", "00110000", "00110001",
+            "00110010", "00110011", "00110100", "00110101", "00110110", "00110111", "00111000", "00111001", "00111010", "00111011",
+            "00111100", "00111101", "00111110", "00111111", "01000000", "01000001", "01000010", "01000011", "01000100", "01000101",
+            "01000110", "01000111", "01001000", "01001001", "01001010", "01001011", "01001100", "01001101", "01001110", "01001111",
+            "01010000", "01010001", "01010010", "01010011", "01010100", "01010101", "01010110", "01010111", "01011000", "01011001",
+            "01011010", "01011011", "01011100", "01011101", "01011110", "01011111", "01100000", "01100001", "01100010", "01100011",
+            "01100100", "01100101", "01100110", "01100111", "01101000", "01101001", "01101010", "01101011", "01101100", "01101101",
+            "01101110", "01101111", "01110000", "01110001", "01110010", "01110011", "01110100", "01110101", "01110110", "01110111",
+            "01111000", "01111001", "01111010", "01111011", "01111100", "01111101", "01111110", "01111111", "10000000", "10000001",
+            "10000010", "10000011", "10000100", "10000101", "10000110", "10000111", "10001000", "10001001", "10001010", "10001011",
+            "10001100", "10001101", "10001110", "10001111", "10010000", "10010001", "10010010", "10010011", "10010100", "10010101",
+            "10010110", "10010111", "10011000", "10011001", "10011010", "10011011", "10011100", "10011101", "10011110", "10011111",
+            "10100000", "10100001", "10100010", "10100011", "10100100", "10100101", "10100110", "10100111", "10101000", "10101001",
+            "10101010", "10101011", "10101100", "10101101", "10101110", "10101111", "10110000", "10110001", "10110010", "10110011",
+            "10110100", "10110101", "10110110", "10110111", "10111000", "10111001", "10111010", "10111011", "10111100", "10111101",
+            "10111110", "10111111", "11000000", "11000001", "11000010", "11000011", "11000100", "11000101", "11000110", "11000111",
+            "11001000", "11001001", "11001010", "11001011", "11001100", "11001101", "11001110", "11001111", "11010000", "11010001",
+            "11010010", "11010011", "11010100", "11010101", "11010110", "11010111", "11011000", "11011001", "11011010", "11011011",
+            "11011100", "11011101", "11011110", "11011111", "11100000", "11100001", "11100010", "11100011", "11100100", "11100101",
+            "11100110", "11100111", "11101000", "11101001", "11101010", "11101011", "11101100", "11101101", "11101110", "11101111",
+            "11110000", "11110001", "11110010", "11110011", "11110100", "11110101", "11110110", "11110111", "11111000", "11111001",
+            "11111010", "11111011", "11111100", "11111101", "11111110", "11111111"};
 
-  static __ccptrT hexToAscii(__ccptrT hex) noexcept {
-    static char result[2048];
-    size_t hexLength = 0;
-    while (hex[hexLength] != '\0') {
-      ++hexLength;
+        static char result[8192];
+        size_t inputLength = 0;
+        while (input[inputLength] != '\0')
+        {
+            ++inputLength;
+        }
+        size_t resultIndex = 0;
+        for (size_t i = 0; i < inputLength; ++i)
+        {
+            __ccptrT binary = lookup[static_cast<unsigned char>(input[i])];
+            for (int j = 0; j < 8; ++j)
+            {
+                result[resultIndex++] = binary[j];
+            }
+        }
+        result[resultIndex] = '\0';
+        return result;
     }
-    size_t resultIndex = 0;
-    for (size_t i = 0; i < hexLength; i += 2) {
-      char byteString[3] = {0};
-      byteString[0] = hex[i];
-      byteString[1] = hex[i + 1];
-      char asciiChar = static_cast<char>(strtol(byteString, nullptr, 16));
-      result[resultIndex++] = asciiChar;
-    }
-    result[resultIndex] = '\0';
-    return result;
-  }
 
-  static __ccptrT binaryToHex(__ccptrT binary) noexcept {
-    static const char hexDigits[] = "0123456789ABCDEF";
-    static char result[1024];
-    size_t binaryLength = 0;
-    while (binary[binaryLength] != '\0') {
-      ++binaryLength;
+    __attribute__((warn_unused_result, nonnull)) static __ccptrT asciiToHex(__ccptrT input) noexcept
+    {
+        static const char hexDigits[17] = "0123456789ABCDEF";
+        static char result[4096];
+        size_t inputLength = 0;
+        while (input[inputLength] != '\0')
+        {
+            ++inputLength;
+        }
+        size_t resultIndex = 0;
+        for (size_t i = 0; i < inputLength; ++i)
+        {
+            result[resultIndex++] = hexDigits[static_cast<unsigned char>(input[i]) >> 4];
+            result[resultIndex++] = hexDigits[static_cast<unsigned char>(input[i]) & 0x0F];
+        }
+        result[resultIndex] = '\0';
+        return result;
     }
-    size_t resultIndex = 0;
-    for (size_t i = 0; i < binaryLength; i += 4) {
-      char nibbleString[5] = {0};
-      for (int j = 0; j < 4; ++j) {
-        nibbleString[j] = binary[i + j];
-      }
-      int hexValue = strtol(nibbleString, nullptr, 2);
-      result[resultIndex++] = hexDigits[hexValue];
-    }
-    result[resultIndex] = '\0';
-    return result;
-  }
 
-  static __ccptrT hexToBinary(__ccptrT hex) noexcept {
-    static char result[8192];
-    size_t hexLength = 0;
-    while (hex[hexLength] != '\0') {
-      ++hexLength;
+    __attribute__((warn_unused_result, nonnull)) static __ccptrT binaryToAscii(__ccptrT binary) noexcept
+    {
+        static char result[1024];
+        size_t binaryLength = 0;
+        while (binary[binaryLength] != '\0')
+        {
+            ++binaryLength;
+        }
+        size_t resultIndex = 0;
+        for (size_t i = 0; i < binaryLength; i += 8)
+        {
+            char byteString[9] = {0};
+            for (int j = 0; j < 8; ++j)
+            {
+                byteString[j] = binary[i + j];
+            }
+            char asciiChar = static_cast<char>(strtol(byteString, nullptr, 2));
+            result[resultIndex++] = asciiChar;
+        }
+        result[resultIndex] = '\0';
+        return result;
     }
-    size_t resultIndex = 0;
-    for (size_t i = 0; i < hexLength; ++i) {
-      int hexValue = (hex[i] >= '0' && hex[i] <= '9') ? hex[i] - '0' : (hex[i] - 'A' + 10);
-      for (int j = 3; j >= 0; --j) {
-        result[resultIndex++] = (hexValue & (1 << j)) ? '1' : '0';
-      }
+
+    __attribute__((warn_unused_result, nonnull)) static __ccptrT hexToAscii(__ccptrT hex) noexcept
+    {
+        static char result[2048];
+        size_t hexLength = 0;
+        while (hex[hexLength] != '\0')
+        {
+            ++hexLength;
+        }
+        size_t resultIndex = 0;
+        for (size_t i = 0; i < hexLength; i += 2)
+        {
+            char byteString[3] = {0};
+            byteString[0] = hex[i];
+            byteString[1] = hex[i + 1];
+            char asciiChar = static_cast<char>(strtol(byteString, nullptr, 16));
+            result[resultIndex++] = asciiChar;
+        }
+        result[resultIndex] = '\0';
+        return result;
     }
-    result[resultIndex] = '\0';
-    return result;
-  }
+
+    __attribute__((warn_unused_result, nonnull)) static __ccptrT binaryToHex(__ccptrT binary) noexcept
+    {
+        static const char hexDigits[] = "0123456789ABCDEF";
+        static char result[1024];
+        size_t binaryLength = 0;
+        while (binary[binaryLength] != '\0')
+        {
+            ++binaryLength;
+        }
+        size_t resultIndex = 0;
+        for (size_t i = 0; i < binaryLength; i += 4)
+        {
+            char nibbleString[5] = {0};
+            for (int j = 0; j < 4; ++j)
+            {
+                nibbleString[j] = binary[i + j];
+            }
+            int hexValue = strtol(nibbleString, nullptr, 2);
+            result[resultIndex++] = hexDigits[hexValue];
+        }
+        result[resultIndex] = '\0';
+        return result;
+    }
+
+    __attribute__((warn_unused_result, nonnull)) static __ccptrT hexToBinary(__ccptrT hex) noexcept
+    {
+        static char result[8192];
+        size_t hexLength = 0;
+        while (hex[hexLength] != '\0')
+        {
+            ++hexLength;
+        }
+        size_t resultIndex = 0;
+        for (size_t i = 0; i < hexLength; ++i)
+        {
+            int hexValue = (hex[i] >= '0' && hex[i] <= '9') ? hex[i] - '0' : (hex[i] - 'A' + 10);
+            for (int j = 3; j >= 0; --j)
+            {
+                result[resultIndex++] = (hexValue & (1 << j)) ? '1' : '0';
+            }
+        }
+        result[resultIndex] = '\0';
+        return result;
+    }
 };
 
 #ifdef __MFAES_BLOCK_CIPHER_lbv01__
@@ -349,78 +413,108 @@ public:
 #ifdef __AES_RCON_SZ__
 #ifdef __AES_MCSMSZ__
 
-namespace AESCrypto {
+namespace AESCrypto
+{
 
-class InhInitOpClass {
-public:
-  InhInitOpClass() = default;
-  ~InhInitOpClass() = default;
-  __attribute__((cold, pure, warn_unused_result, nonnull)) inline const __uint64T _getSequenceSize(__ccptrT input) noexcept {
-    if (input == nullptr || *input == '\0') [[unlikely]]
-      return 0;
-    __uint64T size{0};
-    __uint16T c = (*input);
-    do {
-      ++size;
-    } while ((c = *(++input)) != '\0');
-    return size;
-  };
+class InhInitOpClass
+{
+  public:
+    InhInitOpClass() = default;
+    ~InhInitOpClass() = default;
+    __attribute__((cold, pure, warn_unused_result, nonnull)) inline const __uint64T _getSequenceSize(__ccptrT input) noexcept
+    {
+        if (input == nullptr || *input == '\0') [[unlikely]]
+            return 0;
+        __uint64T size{0};
+        __uint16T c = (*input);
+        do
+        {
+            ++size;
+        } while ((c = *(++input)) != '\0');
+        return size;
+    };
 
-  template <typename T>
-  __attribute__((nonnull, warn_unused_result, pure)) inline const Sequence<T> _genBlockSequence(__ccptrT seq, const __uint64T n) noexcept {
-    struct Sequence<T> sequence;
-    sequence.data = (T *)malloc(n * sizeof(T));
-    sequence.size = 0;
-    __uint16T c = (*seq);
-    do {
-      sequence.data[sequence.size++] = (T)c;
-    } while ((c = *(++seq)) != '\0' && sequence.size < n);
-    return sequence;
-  };
+    template <typename T>
+    __attribute__((nonnull, warn_unused_result, pure)) inline const Sequence<T> _genBlockSequence(__ccptrT seq, const __uint64T n) noexcept
+    {
+        struct Sequence<T> sequence;
+        sequence.data = (T *)malloc(n * sizeof(T));
+        sequence.size = 0;
+        __uint16T c = (*seq);
+        do
+        {
+            sequence.data[sequence.size++] = (T)c;
+        } while ((c = *(++seq)) != '\0' && sequence.size < n);
+        return sequence;
+    };
 
-protected:
-  __uint64T _iSz;
-  __uint64T _kSz;
-  struct Sequence<__uint16T> _input_bits;
-  struct Sequence<__uint16T> _key_bits;
+    __attribute__((cold)) inline const bool _finAssertStatus() const noexcept {
+        return this->_dfmt.__inp_raw.size > 0 
+        && this->_dfmt.__key_raw.size > 0 
+        && this->_dfmt.__ibin.size == this->_dfmt.__inp_raw.size * 0x8
+        && this->_dfmt.__kbin.size == this->_dfmt.__key_raw.size * 0x8;
+    };
+
+  protected:
+    __uint64T _iSz;
+    __uint64T _kSz;
+    __AesDtConvFmt _dfmt;
 };
 
-template <__uint16T BlockSz> struct IsValidBlockSize {
-  static const bool value = (BlockSz == __AES128KS__ || BlockSz == __AES192KS__ || BlockSz == __AES256KS__);
+template <__uint16T BlockSz> struct IsValidBlockSize
+{
+    static const bool value = (BlockSz == __AES128KS__ || BlockSz == __AES192KS__ || BlockSz == __AES256KS__);
 };
 
 template <__uint16T BlockSz, typename Enable = void> class Aes;
 
-template <__uint16T BlockSz> class Aes<BlockSz, typename std::enable_if<IsValidBlockSize<BlockSz>::value>::type> : public InhInitOpClass {
-public:
-  inline explicit Aes() noexcept = delete;
-  inline Aes(const Aes &_c) noexcept = delete;
-  inline Aes(const Aes &&_c) noexcept = delete;
-  inline Aes(__ccptrT input, __ccptrT key) {
-    if (!this->_paramStateAssert(input, key)) {
-      throw std::invalid_argument("invalid input or key!");
-    }
-    this->_dataInitialization(input, key);
-  };
+template <__uint16T BlockSz> class Aes<BlockSz, typename std::enable_if<IsValidBlockSize<BlockSz>::value>::type> : public InhInitOpClass
+{
+  public:
+    inline explicit Aes() noexcept = delete;
+    inline Aes(const Aes &_c) noexcept = delete;
+    inline Aes(const Aes &&_c) noexcept = delete;
+    inline Aes(__ccptrT input, __ccptrT key)
+    {
+        if (!this->_paramStateAssert(input, key)) [[unlikely]]
+        {
+            throw std::invalid_argument("invalid input or key!");
+        }
+        this->_dataInitialization(input, key);
 
-  inline ~Aes() noexcept = default;
+        if(this->_finAssertStatus()) [[likely]] {
+            
+        }else{
+            throw std::runtime_error("AES: Final Assertion Status failed!");
+        }
+    };
 
-private:
-  __attribute__((cold, warn_unused_result)) inline const bool _paramStateAssert(__ccptrT input, __ccptrT key) noexcept {
-    if ((this->_iSz = this->_getSequenceSize(input)) >= __UINT64_MAX__ || this->_iSz == 0) [[unlikely]] {
-      return false;
-    }
-    if ((this->_kSz = this->_getSequenceSize(key)) >= __UINT16_MAX__ || this->_kSz == 0) [[unlikely]] {
-      return false;
-    }
-    return true;
-  };
+    inline ~Aes() noexcept = default;
 
-  __attribute__((cold, nonnull)) inline void _dataInitialization(__ccptrT input, __ccptrT key) noexcept {
+  private:
 
-    this->_input_bits = this->_genBlockSequence<__uint16T>(input, this->_iSz);
-    this->_key_bits = this->_genBlockSequence<__uint16T>(key, this->_kSz);
-  };
+    __attribute__((cold, warn_unused_result)) inline const bool _paramStateAssert(__ccptrT input, __ccptrT key) noexcept
+    {
+        if ((this->_iSz = this->_getSequenceSize(input)) >= __UINT64_MAX__ || this->_iSz == 0) [[unlikely]]
+        {
+            return false;
+        }
+        if ((this->_kSz = this->_getSequenceSize(key)) >= __UINT16_MAX__ || this->_kSz == 0) [[unlikely]]
+        {
+            return false;
+        }
+        return true;
+    };
+
+    __attribute__((cold, nonnull)) inline void _dataInitialization(__ccptrT input, __ccptrT key) noexcept
+    {
+
+        this->_dfmt.__inp_raw = this->_genBlockSequence<__uint16T>(input, this->_iSz);
+        this->_dfmt.__key_raw = this->_genBlockSequence<__uint16T>(key, this->_kSz);
+        const __uint64T _binISize{this->_iSz * 0x8}, _binKSize{this->_kSz * 0x8};
+        this->_dfmt.__ibin = this->_genBlockSequence<__uint8T>(Converter::asciiToBinary(input), _binISize);
+        this->_dfmt.__kbin = this->_genBlockSequence<__uint8T>(Converter::asciiToBinary(key), _binKSize);        
+    };
 };
 }; // namespace AESCrypto
 
