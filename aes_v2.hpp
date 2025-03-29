@@ -89,6 +89,8 @@ static constexpr unsigned short int AES128_BLOCK_CIPHER = (0b0001 << 0b0111);
 
 #endif
 
+/*************************************** TYPE DEFS *************************************\
+\***************************************************************************************/
 typedef unsigned char __uint8T;
 typedef unsigned short int __uint16T;
 typedef unsigned int __uint32T;
@@ -97,6 +99,20 @@ typedef unsigned long long int __uint128T;
 typedef const char *__ccptrT;
 typedef bool __bitT;
 
+
+
+/*************************************** STRUCTURES ************************************\
+\***************************************************************************************/
+
+
+/**
+ * @brief Similar to an array but uses dynamic memory allocation for allocating data into memory,
+ * contains sequence of data like an array or vector, provides basic array-like functionality for
+ * getting the size and data, the memory is automatically freed when object is destroyed.
+ * Can access data using "[]" operator, return either read-only or writable address depending on the context.
+ * 
+ * @tparam T type of data to allocate
+ */
 template <typename T> struct Sequence
 {
     __uint64T size{0};
@@ -156,6 +172,13 @@ template <typename T> struct Sequence
         return *this;
     };
 
+
+
+    /**
+     * @brief Access data at i, this returns const(read-only) access to the data, this cannot be modified.
+     * 
+     * @returns T data at i if i < size
+     */
     __attribute__((warn_unused_result, always_inline, pure)) const T operator[](const __uint64T i) const noexcept
     {
         if (i < size)
@@ -164,6 +187,12 @@ template <typename T> struct Sequence
             return T{};
     };
 
+    
+    /**
+     * @brief returns reference access to data at index i if i < size, returned data is modifiable.
+     * 
+     * @returns T& reference to data at i
+     */
     __attribute__((warn_unused_result, always_inline, pure)) T &operator[](const __uint64T i) noexcept
     {
         return data[i < size ? i : i % size];
@@ -202,6 +231,11 @@ template <typename T> struct Sequence
         return this->size > o.size;
     };
 
+
+    /**
+     * @brief apply reverse sequence transformation, every byte in the sequence gets reverse ordered.
+     * 
+     */
     __attribute__((always_inline)) inline void reverse_sequence() noexcept
     {
         T *tmp_seq = (T *)malloc(this->size * sizeof(T));
@@ -219,6 +253,12 @@ template <typename T> struct Sequence
         free(tmp_seq);
     };
 
+    /**
+     * @brief alias to reference type access index operator []
+     * @param __uint64T index to access
+     * @param T new value
+     * 
+     */
     __attribute__((always_inline)) inline void realloc_byte(const __uint64T i, const T n) noexcept
     {
         if (i >= size)
@@ -236,6 +276,11 @@ template <typename T> struct Sequence
     }
 };
 
+
+/**
+ * @brief DES data conversion format, collection of raw/binary data format.
+ * 
+ */
 typedef struct
 {
     struct Sequence<__uint16T> __inp_raw{};
@@ -244,11 +289,23 @@ typedef struct
     struct Sequence<__uint8T> __kbin{};
 } __AesDtConvFmt;
 
+
+/**
+ * @brief Class for converting data, conversions available are with Hex, Bin, and Ascii.
+ * 
+ */
 class Converter
 {
   public:
     Converter() = delete;
     ~Converter() = default;
+
+    /**
+     * @brief Convert ascii data to binary
+     * @param __ccptrT data to convert
+     * @returns __ccptrT binary format 
+     * 
+     */
     __attribute__((warn_unused_result, nonnull)) static __ccptrT asciiToBinary(__ccptrT input) noexcept
     {
         static __ccptrT const lookup[256] = {
@@ -296,8 +353,15 @@ class Converter
         }
         result[resultIndex] = '\0';
         return result;
-    }
+    };
 
+
+    /**
+     * @brief convert ascii to hexadecimal format.
+     * @param __ccptrT data to convert
+     * @returns __ccptrT Hex format
+     * 
+     */
     __attribute__((warn_unused_result, nonnull)) static __ccptrT asciiToHex(__ccptrT input) noexcept
     {
         static const char hexDigits[17] = "0123456789ABCDEF";
@@ -316,6 +380,13 @@ class Converter
         result[resultIndex] = '\0';
         return result;
     }
+
+    /**
+     * @brief Convert binary data to Ascii.
+     * @param __ccptrT data(binary)
+     * @returns ascii format
+     * 
+     */
     __attribute__((warn_unused_result, nonnull)) static __ccptrT binaryToAscii(__ccptrT binary) noexcept
     {
         static char result[1024];
@@ -339,6 +410,12 @@ class Converter
         return result;
     }
 
+    /**
+     * @brief Convert hex data to ascii.
+     * @param __ccptrT data to convert
+     * @returns __ccptrT hex format
+     * 
+     */
     __attribute__((warn_unused_result, nonnull)) static __ccptrT hexToAscii(__ccptrT hex) noexcept
     {
         static char result[2048];
@@ -374,6 +451,12 @@ class Converter
         return result;
     }
 
+    /**
+     * @brief Convert binary data to Hex format.
+     * @param __ccptrT data to convert
+     * @returns __ccptrT hex format
+     * 
+     */
     __attribute__((warn_unused_result, nonnull)) static __ccptrT binaryToHex(__ccptrT binary) noexcept
     {
         static const char hexDigits[] = "0123456789ABCDEF";
@@ -398,6 +481,12 @@ class Converter
         return result;
     }
 
+    /**
+     * @brief Convert hex data to binary.
+     * @param __ccptrT data to convert
+     * @returns __ccptrT binary format
+     * 
+     */
     __attribute__((warn_unused_result, nonnull)) static __ccptrT hexToBinary(__ccptrT hex) noexcept
     {
         static char result[8192];
@@ -425,18 +514,33 @@ class Converter
 #ifdef __AES_RCON_SZ__
 #ifdef __AES_MCSMSZ__
 
+/********************************** AES NAMESPACE **************************************\
+\***************************************************************************************/
+
 namespace AESCrypto
 {
 
+
+/**
+ * @brief Base class for general AES operations.
+ * 
+ */
 class InhInitOpClass
 {
   public:
     InhInitOpClass() = default;
     ~InhInitOpClass() = default;
+
+    /**
+     * @brief Calculate the size of char* sequence of bytes.
+     * @param __ccptrT byte sequence
+     * @returns __uint64T size of sequence
+     * 
+     */
     __attribute__((cold, pure, warn_unused_result, nonnull)) inline const __uint64T _getSequenceSize(__ccptrT input) noexcept
     {
         if (input == nullptr || *input == '\0') [[unlikely]]
-            return 0;
+            return 0; // if there input is empty or first byte is terminator byte return 0
         __uint64T size{0};
         __uint16T c = (*input);
         do
@@ -446,20 +550,32 @@ class InhInitOpClass
         return size;
     };
 
+    /**
+     * @brief Generate a Sequence structure using a sequence of bytes and a size, will create
+     * a Sequence<T> structure and populate S.data with the bytes from seq, and S.size of bytes.
+     * 
+     * @tparam T type of sequence bytes
+     * @returns Sequence<T> sequence structure
+     */
     template <typename T>
     __attribute__((nonnull, warn_unused_result, pure)) inline const Sequence<T> _genBlockSequence(__ccptrT seq, const __uint64T n) noexcept
     {
-        struct Sequence<T> sequence;
-        sequence.data = (T *)malloc(n * sizeof(T));
-        sequence.size = 0;
+        struct Sequence<T> sequence; // new sequence structure
+        sequence.data = (T *)malloc(n * sizeof(T)); // allocate new memory for the sequence of bytes
+        sequence.size = 0; // initialize size attribute to 0
         __uint16T c = (*seq);
         do
         {
-            sequence.data[sequence.size++] = (T)c;
-        } while ((c = *(++seq)) != '\0' && sequence.size < n);
-        return sequence;
+            sequence.data[sequence.size++] = (T)c; // store current index value into new sequence structure 
+        } while ((c = *(++seq)) != '\0' && sequence.size < n); // until encounter terminator byte or size >= n
+        return sequence; // return new sequence structure
     };
 
+    /**
+     * @brief Verify the status of operations on data.
+     * @returns bool true if success, false otherwise
+     * 
+     */
     __attribute__((cold)) inline const bool _finAssertStatus() const noexcept
     {
         return this->_dfmt.__inp_raw.size > 0 && this->_dfmt.__key_raw.size > 0 &&
@@ -467,9 +583,9 @@ class InhInitOpClass
     };
 
   protected:
-    __uint64T _iSz;
-    __uint64T _kSz;
-    __AesDtConvFmt _dfmt;
+    __uint64T _iSz; // input size in bytes  
+    __uint64T _kSz; // key size in bytes
+    __AesDtConvFmt _dfmt; // data format structure
 };
 
 template <__uint16T BlockSz> struct IsValidBlockSize
@@ -477,37 +593,28 @@ template <__uint16T BlockSz> struct IsValidBlockSize
     static const bool value = (BlockSz == __AES128KS__ || BlockSz == __AES192KS__ || BlockSz == __AES256KS__);
 };
 
-template <__uint16T BlockSz, typename Enable = void> class Aes;
+template <__uint16T BlockSz, typename Enable = void> class AES_Encryption;
+template <__uint16T BlockSz, typename Enable = void> class AES_Decryption;
+template <__uint16T BlockSz, typename Enable = void> class AesEngine;
 
-template <__uint16T BlockSz> class Aes<BlockSz, typename std::enable_if<IsValidBlockSize<BlockSz>::value>::type> : public InhInitOpClass
-{
-  public:
-    inline explicit Aes() noexcept = delete;
-    inline Aes(const Aes &_c) noexcept = delete;
-    inline Aes(const Aes &&_c) noexcept = delete;
-    inline Aes(__ccptrT input, __ccptrT key)
+
+template <__uint16T BlockSz> class AesEngine<BlockSz, typename std::enable_if<IsValidBlockSize<BlockSz>::value>::type> : public InhInitOpClass {
+public:
+inline explicit AesEngine() noexcept = default;
+    inline AesEngine(const AesEngine &_c) noexcept = delete;
+    inline AesEngine(const AesEngine &&_c) noexcept = delete;
+    inline AesEngine(__ccptrT input, __ccptrT key)  {};
+    inline ~AesEngine() noexcept = default;
+
+  protected:
+  /**
+   * @brief Verify parameters provided for encryption(input, key)
+   * @returns bool true if valid, false otherwise
+   * 
+   */
+    __attribute__((cold, warn_unused_result))  inline virtual const bool _paramStateAssert(__ccptrT input, __ccptrT key) noexcept
     {
-        if (!this->_paramStateAssert(input, key)) [[unlikely]]
-        {
-            throw std::invalid_argument("invalid input or key!");
-        }
-        this->_dataInitialization(input, key);
-
-        if (this->_finAssertStatus()) [[likely]]
-        {
-            
-        }
-        else
-        {
-            throw std::runtime_error("AES: Final Assertion Status failed!");
-        }
-    };
-
-    inline ~Aes() noexcept = default;
-
-  private:
-    __attribute__((cold, warn_unused_result)) inline const bool _paramStateAssert(__ccptrT input, __ccptrT key) noexcept
-    {
+        // verify the size of the data, must be > 0 and < max supported int size
         if ((this->_iSz = this->_getSequenceSize(input)) >= __UINT64_MAX__ || this->_iSz == 0) [[unlikely]]
         {
             return false;
@@ -519,15 +626,91 @@ template <__uint16T BlockSz> class Aes<BlockSz, typename std::enable_if<IsValidB
         return true;
     };
 
+    /**
+     * @brief Initialize Internal data structure, will store data in 2 formats, 
+     * raw format and binary format for both input and key parameters.
+     * @param __ccptrT data
+     * @param __ccptrT key
+     * 
+     */
     __attribute__((cold, nonnull)) inline void _dataInitialization(__ccptrT input, __ccptrT key) noexcept
     {
 
-        this->_dfmt.__inp_raw = this->_genBlockSequence<__uint16T>(input, this->_iSz);
-        this->_dfmt.__key_raw = this->_genBlockSequence<__uint16T>(key, this->_kSz);
-        const __uint64T _binISize{this->_iSz * 0x8}, _binKSize{this->_kSz * 0x8};
-        this->_dfmt.__ibin = this->_genBlockSequence<__uint8T>(Converter::asciiToBinary(input), _binISize);
-        this->_dfmt.__kbin = this->_genBlockSequence<__uint8T>(Converter::asciiToBinary(key), _binKSize);
+        this->_dfmt.__inp_raw = this->_genBlockSequence<__uint16T>(input, this->_iSz); // generate raw byte sequence for input 
+        this->_dfmt.__key_raw = this->_genBlockSequence<__uint16T>(key, this->_kSz); // generate raw byte sequence for key
+        const __uint64T _binISize{this->_iSz * 0x8}, _binKSize{this->_kSz * 0x8}; // input/key size for binary format
+        this->_dfmt.__ibin = this->_genBlockSequence<__uint8T>(Converter::asciiToBinary(input), _binISize); // generate input binary format
+        this->_dfmt.__kbin = this->_genBlockSequence<__uint8T>(Converter::asciiToBinary(key), _binKSize); // generate key binary format
     };
+};
+
+template <__uint16T BlockSz> class AES_Encryption<BlockSz, typename std::enable_if<IsValidBlockSize<BlockSz>::value>::type> : public AesEngine<BlockSz>
+{
+  public:
+    inline explicit AES_Encryption() noexcept = delete;
+    inline AES_Encryption(const AES_Encryption &_c) noexcept = delete;
+    inline AES_Encryption(const AES_Encryption &&_c) noexcept = delete;
+    inline AES_Encryption(__ccptrT input, __ccptrT key)
+    {
+        // check parameters
+        if (!this->_paramStateAssert(input, key)) [[unlikely]]
+        {
+            throw std::invalid_argument("invalid input or key!");
+        }
+
+        // initialize internal data
+        this->_dataInitialization(input, key);
+
+        // verify status of data structure
+        if (this->_finAssertStatus()) [[likely]]
+        {
+            // data structure is ok..
+
+        }
+        else
+        { 
+            // something went wrong...
+            throw std::runtime_error("AES: Final Assertion Status failed!");
+        }
+    };
+
+
+    inline ~AES_Encryption() noexcept = default;
+
+  
+};
+
+template <__uint16T BlockSz> 
+class AES_Decryption<BlockSz, typename std::enable_if<IsValidBlockSize<BlockSz>::value>::type>: public AesEngine<BlockSz> {
+    public:
+    inline explicit AES_Decryption() noexcept = delete;
+    inline AES_Decryption(const AES_Decryption &_c) noexcept = delete;
+    inline AES_Decryption(const AES_Decryption &&_c) noexcept = delete;
+    inline AES_Decryption(__ccptrT input, __ccptrT key)
+    {
+        // check parameters
+        if (!this->_paramStateAssert(input, key)) [[unlikely]]
+        {
+            throw std::invalid_argument("invalid input or key!");
+        }
+
+        // initialize internal data
+        this->_dataInitialization(input, key);
+
+        // verify status of data structure
+        if (this->_finAssertStatus()) [[likely]]
+        {
+            // data structure is ok..
+
+        }
+        else
+        { 
+            // something went wrong...
+            throw std::runtime_error("AES: Final Assertion Status failed!");
+        }
+    };
+
+    inline ~AES_Decryption() noexcept = default;
 };
 }; // namespace AESCrypto
 
