@@ -236,14 +236,13 @@ template <typename T> struct Sequence
     }
 };
 
-
-typedef struct {
+typedef struct
+{
     struct Sequence<__uint16T> __inp_raw{};
     struct Sequence<__uint16T> __key_raw{};
-    struct Sequence<__uint8T>   __ibin{};
-    struct Sequence<__uint8T>   __kbin{};
-}__AesDtConvFmt;
-
+    struct Sequence<__uint8T> __ibin{};
+    struct Sequence<__uint8T> __kbin{};
+} __AesDtConvFmt;
 
 class Converter
 {
@@ -252,7 +251,7 @@ class Converter
     ~Converter() = default;
     __attribute__((warn_unused_result, nonnull)) static __ccptrT asciiToBinary(__ccptrT input) noexcept
     {
-         static __ccptrT const lookup[256] = {
+        static __ccptrT const lookup[256] = {
             "00000000", "00000001", "00000010", "00000011", "00000100", "00000101", "00000110", "00000111", "00001000", "00001001",
             "00001010", "00001011", "00001100", "00001101", "00001110", "00001111", "00010000", "00010001", "00010010", "00010011",
             "00010100", "00010101", "00010110", "00010111", "00011000", "00011001", "00011010", "00011011", "00011100", "00011101",
@@ -281,13 +280,13 @@ class Converter
             "11111010", "11111011", "11111100", "11111101", "11111110", "11111111"};
 
         static char result[8192];
-        size_t inputLength = 0;
+        __uint64T inputLength = 0;
         while (input[inputLength] != '\0')
         {
             ++inputLength;
         }
-        size_t resultIndex = 0;
-        for (size_t i = 0; i < inputLength; ++i)
+        __uint64T resultIndex = 0;
+        for (__uint64T i = 0; i < inputLength; ++i)
         {
             __ccptrT binary = lookup[static_cast<unsigned char>(input[i])];
             for (int j = 0; j < 8; ++j)
@@ -303,13 +302,13 @@ class Converter
     {
         static const char hexDigits[17] = "0123456789ABCDEF";
         static char result[4096];
-        size_t inputLength = 0;
+        __uint64T inputLength = 0;
         while (input[inputLength] != '\0')
         {
             ++inputLength;
         }
-        size_t resultIndex = 0;
-        for (size_t i = 0; i < inputLength; ++i)
+        __uint64T resultIndex = 0;
+        for (__uint64T i = 0; i < inputLength; ++i)
         {
             result[resultIndex++] = hexDigits[static_cast<unsigned char>(input[i]) >> 4];
             result[resultIndex++] = hexDigits[static_cast<unsigned char>(input[i]) & 0x0F];
@@ -317,24 +316,23 @@ class Converter
         result[resultIndex] = '\0';
         return result;
     }
-
     __attribute__((warn_unused_result, nonnull)) static __ccptrT binaryToAscii(__ccptrT binary) noexcept
     {
         static char result[1024];
-        size_t binaryLength = 0;
+        __uint64T binaryLength = 0;
         while (binary[binaryLength] != '\0')
         {
             ++binaryLength;
         }
-        size_t resultIndex = 0;
-        for (size_t i = 0; i < binaryLength; i += 8)
+        __uint64T resultIndex = 0;
+        for (__uint64T i = 0; i < binaryLength; i += 8)
         {
-            char byteString[9] = {0};
+            char asciiChar = 0;
             for (int j = 0; j < 8; ++j)
             {
-                byteString[j] = binary[i + j];
+                asciiChar <<= 1;
+                asciiChar |= (binary[i + j] - '0');
             }
-            char asciiChar = static_cast<char>(strtol(byteString, nullptr, 2));
             result[resultIndex++] = asciiChar;
         }
         result[resultIndex] = '\0';
@@ -344,18 +342,32 @@ class Converter
     __attribute__((warn_unused_result, nonnull)) static __ccptrT hexToAscii(__ccptrT hex) noexcept
     {
         static char result[2048];
-        size_t hexLength = 0;
+        __uint64T hexLength = 0;
         while (hex[hexLength] != '\0')
         {
             ++hexLength;
         }
-        size_t resultIndex = 0;
-        for (size_t i = 0; i < hexLength; i += 2)
+        __uint64T resultIndex = 0;
+        for (__uint64T i = 0; i < hexLength; i += 2)
         {
-            char byteString[3] = {0};
-            byteString[0] = hex[i];
-            byteString[1] = hex[i + 1];
-            char asciiChar = static_cast<char>(strtol(byteString, nullptr, 16));
+            char asciiChar = 0;
+            for (int j = 0; j < 2; ++j)
+            {
+                asciiChar <<= 4;
+                char hexDigit = hex[i + j];
+                if (hexDigit >= '0' && hexDigit <= '9')
+                {
+                    asciiChar |= (hexDigit - '0');
+                }
+                else if (hexDigit >= 'A' && hexDigit <= 'F')
+                {
+                    asciiChar |= (hexDigit - 'A' + 10);
+                }
+                else if (hexDigit >= 'a' && hexDigit <= 'f')
+                {
+                    asciiChar |= (hexDigit - 'a' + 10);
+                }
+            }
             result[resultIndex++] = asciiChar;
         }
         result[resultIndex] = '\0';
@@ -366,20 +378,20 @@ class Converter
     {
         static const char hexDigits[] = "0123456789ABCDEF";
         static char result[1024];
-        size_t binaryLength = 0;
+        __uint64T binaryLength = 0;
         while (binary[binaryLength] != '\0')
         {
             ++binaryLength;
         }
-        size_t resultIndex = 0;
-        for (size_t i = 0; i < binaryLength; i += 4)
+        __uint64T resultIndex = 0;
+        for (__uint64T i = 0; i < binaryLength; i += 4)
         {
-            char nibbleString[5] = {0};
+            int hexValue = 0;
             for (int j = 0; j < 4; ++j)
             {
-                nibbleString[j] = binary[i + j];
+                hexValue <<= 1;
+                hexValue |= (binary[i + j] - '0');
             }
-            int hexValue = strtol(nibbleString, nullptr, 2);
             result[resultIndex++] = hexDigits[hexValue];
         }
         result[resultIndex] = '\0';
@@ -389,13 +401,13 @@ class Converter
     __attribute__((warn_unused_result, nonnull)) static __ccptrT hexToBinary(__ccptrT hex) noexcept
     {
         static char result[8192];
-        size_t hexLength = 0;
+        __uint64T hexLength = 0;
         while (hex[hexLength] != '\0')
         {
             ++hexLength;
         }
-        size_t resultIndex = 0;
-        for (size_t i = 0; i < hexLength; ++i)
+        __uint64T resultIndex = 0;
+        for (__uint64T i = 0; i < hexLength; ++i)
         {
             int hexValue = (hex[i] >= '0' && hex[i] <= '9') ? hex[i] - '0' : (hex[i] - 'A' + 10);
             for (int j = 3; j >= 0; --j)
@@ -448,11 +460,10 @@ class InhInitOpClass
         return sequence;
     };
 
-    __attribute__((cold)) inline const bool _finAssertStatus() const noexcept {
-        return this->_dfmt.__inp_raw.size > 0 
-        && this->_dfmt.__key_raw.size > 0 
-        && this->_dfmt.__ibin.size == this->_dfmt.__inp_raw.size * 0x8
-        && this->_dfmt.__kbin.size == this->_dfmt.__key_raw.size * 0x8;
+    __attribute__((cold)) inline const bool _finAssertStatus() const noexcept
+    {
+        return this->_dfmt.__inp_raw.size > 0 && this->_dfmt.__key_raw.size > 0 &&
+               this->_dfmt.__ibin.size == this->_dfmt.__inp_raw.size * 0x8 && this->_dfmt.__kbin.size == this->_dfmt.__key_raw.size * 0x8;
     };
 
   protected:
@@ -482,9 +493,12 @@ template <__uint16T BlockSz> class Aes<BlockSz, typename std::enable_if<IsValidB
         }
         this->_dataInitialization(input, key);
 
-        if(this->_finAssertStatus()) [[likely]] {
+        if (this->_finAssertStatus()) [[likely]]
+        {
             
-        }else{
+        }
+        else
+        {
             throw std::runtime_error("AES: Final Assertion Status failed!");
         }
     };
@@ -492,7 +506,6 @@ template <__uint16T BlockSz> class Aes<BlockSz, typename std::enable_if<IsValidB
     inline ~Aes() noexcept = default;
 
   private:
-
     __attribute__((cold, warn_unused_result)) inline const bool _paramStateAssert(__ccptrT input, __ccptrT key) noexcept
     {
         if ((this->_iSz = this->_getSequenceSize(input)) >= __UINT64_MAX__ || this->_iSz == 0) [[unlikely]]
@@ -513,7 +526,7 @@ template <__uint16T BlockSz> class Aes<BlockSz, typename std::enable_if<IsValidB
         this->_dfmt.__key_raw = this->_genBlockSequence<__uint16T>(key, this->_kSz);
         const __uint64T _binISize{this->_iSz * 0x8}, _binKSize{this->_kSz * 0x8};
         this->_dfmt.__ibin = this->_genBlockSequence<__uint8T>(Converter::asciiToBinary(input), _binISize);
-        this->_dfmt.__kbin = this->_genBlockSequence<__uint8T>(Converter::asciiToBinary(key), _binKSize);        
+        this->_dfmt.__kbin = this->_genBlockSequence<__uint8T>(Converter::asciiToBinary(key), _binKSize);
     };
 };
 }; // namespace AESCrypto
