@@ -520,7 +520,7 @@ template <__uint16T BlockSz, typename Enable = void> class AES_Decryption;
 template <__uint16T BlockSz, typename Enable = void> class AesEngine;
 
 typedef struct Sequence<struct Sequence<__uint8T>> __rkBlockT;
-typedef struct Sequence<__uint8T> __stateMtxT;
+typedef __rkBlockT __stateMtxT;
 /**
  * @brief Base class for general AES operations.
  *
@@ -529,8 +529,7 @@ class InhInitOpClass
 {
   public:
     InhInitOpClass() {};
-    ~InhInitOpClass() {
-    };
+    ~InhInitOpClass() {};
 
   protected:
     /**
@@ -583,33 +582,31 @@ class InhInitOpClass
         return this->_dfmt.__inp_raw.size > 0 && this->_dfmt.__key_raw.size > 0 &&
                this->_dfmt.__ibin.size == this->_dfmt.__inp_raw.size * 0x8 && this->_dfmt.__kbin.size == this->_dfmt.__key_raw.size * 0x8;
     };
-    
 
-    __uint64T _iSz;       // input size in bytes
-    __uint64T _kSz;       // key size in bytes
-    __AesDtConvFmt _dfmt; // data format structure
-    __rkBlockT _rkeys;    // round keys
-    __stateMtxT state; // state matrix
-    
+    __uint64T _iSz;        // input size in bytes
+    __uint64T _kSz;        // key size in bytes
+    __AesDtConvFmt _dfmt;  // data format structure
+    __rkBlockT _rkeys;     // round keys
+    __stateMtxT _stateMtx; // state matrix
 };
-
 
 template <__uint16T BlockSz>
 class AesEngine<BlockSz, typename std::enable_if<IsValidBlockSize<BlockSz>::value>::type> : public InhInitOpClass
 {
 
   protected:
-
-  const __uint8T _Nk = BlockSz / 8; // number of 32-bit words in the key (128-bit key)
-  const __uint8T _Nr = BlockSz == __AES128KS__ ? 10 : (BlockSz == __AES192KS__ ? 12 : 14); // number of rounds
+    const __uint8T _Nk = BlockSz / 8; // number of 32-bit words in the key (128-bit key)
+    const __uint8T _Nr = BlockSz == __AES128KS__ ? 10 : (BlockSz == __AES192KS__ ? 12 : 14); // number of rounds
 
   public:
     inline explicit AesEngine() noexcept = default;
     inline AesEngine(const AesEngine &_c) noexcept = delete;
     inline AesEngine(const AesEngine &&_c) noexcept = delete;
     inline AesEngine(__ccptrT input, __ccptrT key) {};
-    inline ~AesEngine() noexcept {
-                this->_RKMemDealloc();
+    inline ~AesEngine() noexcept
+    {
+        this->_RKMemDealloc();    // free roundKeys
+        this->_StMtxMemDealloc(); // free stateMatrix
     };
 
   protected:
@@ -621,11 +618,8 @@ class AesEngine<BlockSz, typename std::enable_if<IsValidBlockSize<BlockSz>::valu
     __attribute__((cold, warn_unused_result)) inline const bool _paramStateAssert(__ccptrT input, __ccptrT key) noexcept
     {
         // verify the size of the data, must be > 0 and < max supported int size
-        if ((this->_iSz = this->_getSequenceSize(input)) >= __UINT64_MAX__ || this->_iSz == 0) [[unlikely]]
-        {
-            return false;
-        }
-        if ((this->_kSz = this->_getSequenceSize(key)) >= __UINT16_MAX__ || this->_kSz == 0) [[unlikely]]
+        if ((this->_iSz = this->_getSequenceSize(input)) >= __UINT64_MAX__ || this->_iSz == 0 ||
+            (this->_kSz = this->_getSequenceSize(key)) >= __UINT16_MAX__ || this->_kSz == 0) [[unlikely]]
         {
             return false;
         }
@@ -641,26 +635,28 @@ class AesEngine<BlockSz, typename std::enable_if<IsValidBlockSize<BlockSz>::valu
      */
     __attribute__((cold, nonnull)) inline void _dataInitialization(__ccptrT input, __ccptrT key) noexcept
     {
-
+        const __uint64T _binISize{this->_iSz * 0x8}, _binKSize{this->_kSz * 0x8};      // input/key size for binary format
         this->_dfmt.__inp_raw = this->_genBlockSequence<__uint16T>(input, this->_iSz); // generate raw byte sequence for input
         this->_dfmt.__key_raw = this->_genBlockSequence<__uint16T>(key, this->_kSz);   // generate raw byte sequence for key
-        const __uint64T _binISize{this->_iSz * 0x8}, _binKSize{this->_kSz * 0x8};      // input/key size for binary format
         this->_dfmt.__ibin = this->_genBlockSequence<__uint8T>(Converter::asciiToBinary(input), _binISize); // generate input binary format
         this->_dfmt.__kbin = this->_genBlockSequence<__uint8T>(Converter::asciiToBinary(key), _binKSize);   // generate key binary format
     };
 
     /**
      * @brief Reserve round keys memory.
-     * 
+     *
      */
-    __attribute__((cold, stack_protect)) inline void _rkAllocMemSector() {
+    __attribute__((cold, stack_protect)) inline void _rkAllocMemSector()
+    {
         this->_rkeys.size = (this->_Nr + 1); // number of round keys
-        this->_rkeys.data = (Sequence<__uint8T> *)malloc(this->_rkeys.size * sizeof(Sequence<__uint8T>)); // dynamic memory allocation of rk space
-        for (int f =0; f < this->_rkeys.size; ++f)
+        this->_rkeys.data =
+            (Sequence<__uint8T> *)malloc(this->_rkeys.size * sizeof(Sequence<__uint8T>)); // dynamic memory allocation of rk space
+        for (int f = 0; f < this->_rkeys.size; ++f)
         {
-            this->_rkeys[f].size = Nb * sizeof(__uint8T); // reserve space of round key at index f
+            this->_rkeys[f].size = Nb * sizeof(__uint8T);                                       // reserve space of round key at index f
             this->_rkeys[f].data = (__uint8T *)malloc(this->_rkeys[f].size * sizeof(__uint8T)); // alloc memory for roundkey[f]
-            for(int j = 0; j < this->_rkeys[f].size;) {
+            for (int j = 0; j < this->_rkeys[f].size;)
+            {
                 this->_rkeys[f][j++] = 0; // 0 fill memory block
             }
         }
@@ -668,7 +664,7 @@ class AesEngine<BlockSz, typename std::enable_if<IsValidBlockSize<BlockSz>::valu
 
     /**
      * @brief memory deallocate for round key array previously reserved.
-     * 
+     *
      */
     __attribute__((cold, stack_protect)) inline void _RKMemDealloc()
     {
@@ -679,13 +675,44 @@ class AesEngine<BlockSz, typename std::enable_if<IsValidBlockSize<BlockSz>::valu
     };
 
     /**
+     * @brief Reserve state matrix memory space.
+     *
+     */
+    __attribute__((cold, stack_protect)) inline void _StMtxAllocMemSector()
+    {
+        this->_stateMtx.size = (this->_Nr + 1);
+        this->_stateMtx.data = (Sequence<__uint8T> *)malloc(this->_stateMtx.size * sizeof(Sequence<__uint8T>));
+        for (int f = 0; f < this->_stateMtx.size; ++f)
+        {
+            this->_stateMtx[f].size = Nb * sizeof(__uint8T);                                          // reserve space
+            this->_stateMtx[f].data = (__uint8T *)malloc(this->_stateMtx[f].size * sizeof(__uint8T)); // alloc memory for stateMtx[f]
+            for (int j = 0; j < this->_stateMtx[f].size;)
+            {
+                this->_stateMtx[f][j++] = 0; // 0 fill memory block
+            }
+        }
+    };
+
+    /**
+     * @brief memory deallocate for state matrix array array previously reserved.
+     *
+     */
+    __attribute__((cold, stack_protect)) inline void _StMtxMemDealloc()
+    {
+        for (int f = 0; f < this->_stateMtx.size;)
+        {
+            free(this->_stateMtx[f++].data);
+        }
+    };
+
+    /**
      * @brief permorm keyExpansion using main key
-     * 
+     *
      */
     __attribute__((cold)) inline void _keyExpansion()
     {
-        this->_rkAllocMemSector(); // allocate necessary space for roundkeys
-       
+        this->_rkAllocMemSector(); // allocate necessary memory space for roundkeys
+        
     };
 };
 
@@ -711,6 +738,7 @@ class AES_Encryption<BlockSz, typename std::enable_if<IsValidBlockSize<BlockSz>:
         if (this->_finAssertStatus()) [[likely]]
         {
             // data structure is ok..
+            this->_StMtxAllocMemSector(); // allocate state matrix memory space
         }
         else
         {
@@ -719,10 +747,11 @@ class AES_Encryption<BlockSz, typename std::enable_if<IsValidBlockSize<BlockSz>:
         }
     };
 
-    __attribute__((cold, stack_protect)) __ccptrT Finalize()
+    __attribute__((cold, stack_protect)) __ccptrT Encrypt()
     {
         __ccptrT out;
-        this->_keyExpansion(); // op1: execute keyExpansion
+        this->_keyExpansion(); // op1: execute keyExpansion operation
+
         return out;
     };
 
