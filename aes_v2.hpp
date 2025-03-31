@@ -583,11 +583,34 @@ class InhInitOpClass
                this->_dfmt.__ibin.size == this->_dfmt.__inp_raw.size * 0x8 && this->_dfmt.__kbin.size == this->_dfmt.__key_raw.size * 0x8;
     };
 
+    __attribute__((hot, always_inline)) inline void _rotate(Sequence<__uint8T>& arr, __uint16T n, __uint16T k)
+    {
+        if (k % n == 0)
+            return; // No need to rotate if k is 0 or a multiple of n
+        k = k % n; // Normalize k to ensure it's within the bounds of the array length
+        // Step 1: Reverse the first part
+        _reverse(arr, 0, k - 1);
+        // Step 2: Reverse the second part
+        _reverse(arr, k, n - 1);
+        // Step 3: Reverse the whole array
+        _reverse(arr, 0, n - 1);
+    };
+
+    __attribute__((hot, always_inline)) inline void _reverse(Sequence<__uint8T>& arr, __uint16T start, __uint16T end)
+    {
+        while (start < end)
+        {
+            std::swap(arr[start], arr[end]);
+            start++;
+            end--;
+        }
+    };
+
     __uint64T _iSz;        // input size in bytes
     __uint64T _kSz;        // key size in bytes
-    __AesDtConvFmt _dfmt;  // data format structure
-    __rkBlockT _rkeys;     // round keys
-    __stateMtxT _stateMtx; // state matrix
+    __AesDtConvFmt _dfmt;  // data format structure, raw data and binary data from key and input
+    __rkBlockT _rkeys;     // round keys, one key for each round of encryption/decryption
+    __stateMtxT _stateMtx; // state matrix, current 128-bit block of data being encrypted
 };
 
 template <__uint16T BlockSz>
@@ -595,7 +618,7 @@ class AesEngine<BlockSz, typename std::enable_if<IsValidBlockSize<BlockSz>::valu
 {
 
   protected:
-    const __uint8T _Nk = BlockSz / 8; // number of 32-bit words in the key (128-bit key)
+    const __uint8T _Nk = BlockSz / 8;                                                        // number of 32-bit words in the key
     const __uint8T _Nr = BlockSz == __AES128KS__ ? 10 : (BlockSz == __AES192KS__ ? 12 : 14); // number of rounds
 
   public:
@@ -712,7 +735,30 @@ class AesEngine<BlockSz, typename std::enable_if<IsValidBlockSize<BlockSz>::valu
     __attribute__((cold)) inline void _keyExpansion()
     {
         this->_rkAllocMemSector(); // allocate necessary memory space for roundkeys
-        
+
+        // key expansion initialization
+        for (__uint8T k = 0; k < this->_Nk; ++k)
+        {
+            for (__uint8T b = 0; b < Nb; ++b)
+            {
+                this->_rkeys[k][b] = this->_dfmt.__kbin[k * Nb + b];
+            }
+        }
+        for (__uint16T i = this->_Nk; i < (this->_Nr + 1) * Nb; ++i)
+        {
+            Sequence<__uint8T> TRK(this->_rkeys[i - 1]);
+            if(TRK.size == 0) [[unlikely]] {
+                throw std::runtime_error("key scheduling initialization failure due to bad round key values!");
+            }
+            const __uint16T N = sizeof(TRK) / sizeof(TRK[0]);
+            if (i % this->_Nk == 0)
+            {
+                this->_rotate(TRK, N, 1);
+                for(__uint16T b = 0; b < TRK.size; ++b) {
+                    TRK[b] = SBox[b];
+                }
+            }
+        }
     };
 };
 
