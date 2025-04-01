@@ -744,7 +744,7 @@ class AesEngine<BlockSz, typename std::enable_if<IsValidBlockSize<BlockSz>::valu
     __attribute__((cold)) inline void _keyExpansion()
     {
         this->_rkAllocMemSector(); // allocate necessary memory space for roundkeys
-        
+
         // key expansion initialization
         for (__uint8T k = 0; k < this->_Nk; ++k)
         {
@@ -753,7 +753,7 @@ class AesEngine<BlockSz, typename std::enable_if<IsValidBlockSize<BlockSz>::valu
                 this->_rkeys[k][b] = this->_dfmt.__kbin[k * Nb + b];
             }
         }
-        
+
         for (__uint16T i = this->_Nk; i < ((this->_Nr + 1) * Nb); ++i)
         {
             Sequence<__uint8T> TRK(this->_rkeys[i - 1]);
@@ -764,25 +764,28 @@ class AesEngine<BlockSz, typename std::enable_if<IsValidBlockSize<BlockSz>::valu
             const __uint16T N = sizeof(TRK) / sizeof(TRK[0]);
             if (i % this->_Nk == 0)
             {
-                std::cout << "Before Rotation: ";
-                for (int x = 0; x < TRK.size; ++x)
-                    std::cout << TRK[x];
-                std::cout << "\n";
-
                 this->_roundKeyRotation(TRK.data, TRK.size, 1);
-
-                std::cout << "After Rotation: ";
-                for (int x = 0; x < TRK.size; ++x)
-                    std::cout << TRK[x];
-                std::cout << "\n";
-
                 for (__uint16T b = 0; b < TRK.size; ++b)
                 {
-                    TRK[b] = SBox[b];
-                    std::cout << "TRK[" << (int)b << "] = " << (int)SBox[b] << "\n";
+                    TRK[b] = SBox[TRK[b]];
+                }
+                TRK[0] ^= RCon[i / this->_Nk];
+            }
+            else if (this->_Nk > 6 && (i % this->_Nk == 4))
+            {
+                for (__uint16T b = 0; b < TRK.size; ++b)
+                {
+                    TRK[b] = SBox[TRK[b]];
                 }
             }
+            for (__uint16T j = 0; j < TRK.size; ++j)
+            {
+                this->_rkeys[i][j] = this->_rkeys[i - this->_Nk][j] ^ TRK[j];
+            }
         }
+        std::cout << "rkeys: ";
+            for(int i = 0; i < this->_rkeys.size; ++i) for(int j = 0; j < this->_rkeys[i].size; ++j) std::cout << this->_rkeys[i][j];
+            std::cout << "\n";
     };
 };
 
