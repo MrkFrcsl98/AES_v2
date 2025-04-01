@@ -1,7 +1,6 @@
 #include <type_traits>
 // #include "macros.h"
 // #include "typedefs.h"
-
 #ifndef __MFAES_BLOCK_CIPHER_lbv01__
 #define __MFAES_BLOCK_CIPHER_lbv01__ 0x01
 
@@ -583,27 +582,37 @@ class InhInitOpClass
                this->_dfmt.__ibin.size == this->_dfmt.__inp_raw.size * 0x8 && this->_dfmt.__kbin.size == this->_dfmt.__key_raw.size * 0x8;
     };
 
-    __attribute__((hot, always_inline)) inline void _rotate(Sequence<__uint8T>& arr, __uint16T n, __uint16T k)
+    __attribute__((hot, stack_protect, nonnull)) inline void _roundKeyRotation(__uint8T *data, __uint64T size, __uint64T positions)
     {
-        if (k % n == 0)
-            return; // No need to rotate if k is 0 or a multiple of n
-        k = k % n; // Normalize k to ensure it's within the bounds of the array length
-        // Step 1: Reverse the first part
-        _reverse(arr, 0, k - 1);
-        // Step 2: Reverse the second part
-        _reverse(arr, k, n - 1);
-        // Step 3: Reverse the whole array
-        _reverse(arr, 0, n - 1);
-    };
+        if (size == 0)
+            return;        // No rotation needed for empty array
+        positions %= size; // Handle cases where positions >= size
 
-    __attribute__((hot, always_inline)) inline void _reverse(Sequence<__uint8T>& arr, __uint16T start, __uint16T end)
-    {
-        while (start < end)
+        // If positions is 0, no need to rotate
+        if (positions == 0)
+            return;
+
+        // Create a temporary array to hold the rotated values
+        __uint8T *temp = (__uint8T *)malloc(size * sizeof(__uint8T));
+        if (temp == nullptr)
         {
-            std::swap(arr[start], arr[end]);
-            start++;
-            end--;
+            throw std::runtime_error("Memory allocation failed for rotation.");
         }
+
+        // Copy the rotated values into the temporary array
+        for (__uint64T i = 0; i < size; ++i)
+        {
+            temp[i] = data[(i + positions) % size];
+        }
+
+        // Copy the temporary array back to the original data
+        for (__uint64T i = 0; i < size; ++i)
+        {
+            data[i] = temp[i];
+        }
+
+        // Free the temporary array
+        free(temp);
     };
 
     __uint64T _iSz;        // input size in bytes
@@ -671,7 +680,7 @@ class AesEngine<BlockSz, typename std::enable_if<IsValidBlockSize<BlockSz>::valu
      */
     __attribute__((cold, stack_protect)) inline void _rkAllocMemSector()
     {
-        this->_rkeys.size = (this->_Nr + 1); // number of round keys
+        this->_rkeys.size = (this->_Nr + 1) * Nb; // number of round keys
         this->_rkeys.data =
             (Sequence<__uint8T> *)malloc(this->_rkeys.size * sizeof(Sequence<__uint8T>)); // dynamic memory allocation of rk space
         for (int f = 0; f < this->_rkeys.size; ++f)
@@ -735,7 +744,7 @@ class AesEngine<BlockSz, typename std::enable_if<IsValidBlockSize<BlockSz>::valu
     __attribute__((cold)) inline void _keyExpansion()
     {
         this->_rkAllocMemSector(); // allocate necessary memory space for roundkeys
-
+        
         // key expansion initialization
         for (__uint8T k = 0; k < this->_Nk; ++k)
         {
@@ -744,18 +753,33 @@ class AesEngine<BlockSz, typename std::enable_if<IsValidBlockSize<BlockSz>::valu
                 this->_rkeys[k][b] = this->_dfmt.__kbin[k * Nb + b];
             }
         }
-        for (__uint16T i = this->_Nk; i < (this->_Nr + 1) * Nb; ++i)
+        
+        for (__uint16T i = this->_Nk; i < ((this->_Nr + 1) * Nb); ++i)
         {
             Sequence<__uint8T> TRK(this->_rkeys[i - 1]);
-            if(TRK.size == 0) [[unlikely]] {
+            if (TRK.size == 0) [[unlikely]]
+            {
                 throw std::runtime_error("key scheduling initialization failure due to bad round key values!");
             }
             const __uint16T N = sizeof(TRK) / sizeof(TRK[0]);
             if (i % this->_Nk == 0)
             {
-                this->_rotate(TRK, N, 1);
-                for(__uint16T b = 0; b < TRK.size; ++b) {
+                std::cout << "Before Rotation: ";
+                for (int x = 0; x < TRK.size; ++x)
+                    std::cout << TRK[x];
+                std::cout << "\n";
+
+                this->_roundKeyRotation(TRK.data, TRK.size, 1);
+
+                std::cout << "After Rotation: ";
+                for (int x = 0; x < TRK.size; ++x)
+                    std::cout << TRK[x];
+                std::cout << "\n";
+
+                for (__uint16T b = 0; b < TRK.size; ++b)
+                {
                     TRK[b] = SBox[b];
+                    std::cout << "TRK[" << (int)b << "] = " << (int)SBox[b] << "\n";
                 }
             }
         }
